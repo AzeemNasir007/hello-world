@@ -1,61 +1,136 @@
 import React from "react";
+
 import { GiftedChat, Bubble } from "react-native-gifted-chat";
 
 import { View, Platform, KeyboardAvoidingView } from "react-native";
+
+const firebase = require('firebase');
+require('firebase/firestore');
 
 export default class Chat extends React.Component {
   constructor() {
     super();
     this.state = {
       messages: [],
+      uid: 0,
     };
+
+    //Set up firebase
+    const firebaseConfig = {
+      // Firestone credentials
+      apiKey: "AIzaSyDRNdpAP5fCkTP4k4WrQdEgzdmNLxtgN8g",
+      authDomain: "chatapp-ce5f4.firebaseapp.com",
+      projectId: "chatapp-ce5f4",
+      storageBucket: "chatapp-ce5f4.appspot.com",
+      messagingSenderId: "304364997376",
+      appId: "1:304364997376:web:7bfa30463e942bbc6341e5",
+      measurementId: "G-QC6XL9MF21"
+    };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+
+    this.referenceChatMessages = firebase
+      .firestore()
+      .collection("messages");
   }
 
-  componentDidMount() {
+
+  //Retrieve collection data and store messages
+  onCollectionUpdate = (querySnapshot) => {
+    const messages = [];
+    // go through each document
+    querySnapshot.forEach((doc) => {
+      // get the QueryDocumentSnapshot's data
+      let data = doc.data();
+      messages.push({
+        _id: data._id,
+        text: data.text || '',
+        createdAt: data.createdAt.toDate(),
+        user: data.user,
+      });
+    });
     this.setState({
-      messages: [
-        {
-          _id: 1,
-          text: 'Hello developer',
-          createdAt: new Date(),
-          user: {
-            _id: 2,
-            name: 'React Native',
-            avatar: 'https://placeimg.com/140/140/any',
-          },
-        },
-        {
-          _id: 2,
-          text: 'This is a system message',
-          createdAt: new Date(),
-          system: true,
-        },
-      ],
+      messages,
+    });
+  };
+
+  // the user authentication
+  componentDidMount() {
+
+    //Display username in navigation
+    let name = this.props.route.params.name;
+    this.props.navigation.setOptions({ title: name });
+
+    this.referenceChatMessages = firebase.firestore().collection('messages');
+
+    this.authUnsubscribe = firebase.auth().onAuthStateChanged((user) => {
+      if (!user) {
+        firebase.auth().signInAnonymously();
+      }
+      this.setState({
+        uid: user.uid,
+        messages: [],
+        user: {
+          _id: user.uid,
+          name: name,
+        }
+      });
+      this.unsubscribe = this.referenceChatMessages
+        .orderBy('createdAt', 'desc')
+        .onSnapshot(this.onCollectionUpdate);
     });
   }
 
+  componentWillUnmount() {
+    this.unsubscribe();
+    this.authUnsubscribe();
+  }
+
+
+  // save messages to database
+  addMessages() {
+    this.referenceChatMessages.add({
+      uid: this.state.uid,
+      _id: message._id,
+      text: message.text || '',
+      createdAt: message.createdAt,
+      user: message.user,
+    });
+  }
+
+
+  //this is what will be called when a user sends a message
   onSend(messages = []) {
     this.setState((previousState) => ({
       messages: GiftedChat.append(previousState.messages, messages),
-    }));
+    }), () => {
+
+    });
   }
 
+  //the code for actually rendering your chat interface 
   renderBubble(props) {
     return (
       <Bubble
         {...props}
+        //Colors for the messages
         wrapperStyle={{
           right: {
             backgroundColor: "#000",
           },
+          left: {
+            backgroundColor: "#fff",
+          }
         }}
       />
     );
   }
 
+
+
   render() {
-    let name = this.props.route.params.name;
-    this.props.navigation.setOptions({ title: name });
     return (
       <View style={{ flex: 1 }}>
         <GiftedChat
@@ -63,13 +138,13 @@ export default class Chat extends React.Component {
           messages={this.state.messages}
           onSend={(messages) => this.onSend(messages)}
           user={{
-            _id: 1,
+            _id: this.state.uid,
           }}
         />
+        {/*Prevent hidden input field on Andriod*/}
         {Platform.OS === "android" ?
           <KeyboardAvoidingView behavior="height" />
-          : null
-        }
+          : null}
       </View>
     );
   }
