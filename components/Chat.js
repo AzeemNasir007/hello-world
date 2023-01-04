@@ -4,6 +4,9 @@ import { View, Platform, KeyboardAvoidingView } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from '@react-native-community/netinfo';
 import firebase from "../utilz/firebase";
+import MapView from "react-native-maps";
+
+import CustomActions from "./CustomActions";
 
 export default class Chat extends React.Component {
   constructor() {
@@ -11,6 +14,8 @@ export default class Chat extends React.Component {
     this.state = {
       messages: [],
       uid: 0,
+      isConnected: false,
+      image: null,
     };
 
     this.referenceChatMessages = firebase
@@ -173,6 +178,27 @@ export default class Chat extends React.Component {
     }
   }
 
+  /* Displays the communication features */
+  renderCustomActions = (props) => <CustomActions {...props} />;
+
+  //custom map view
+  renderCustomView(props) {
+    const { currentMessage } = props;
+    if (currentMessage.location) {
+      return (
+        <MapView
+          style={{ width: 150, height: 100, borderRadius: 13, margin: 3 }}
+          region={{
+            latitude: currentMessage.location.latitude,
+            longitude: currentMessage.location.longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          }}
+        />
+      );
+    }
+    return null;
+  }
 
 
   render() {
@@ -181,6 +207,8 @@ export default class Chat extends React.Component {
         <GiftedChat
           renderBubble={this.renderBubble.bind(this)}
           renderInputToolbar={this.renderInputToolbar.bind(this)}
+          renderActions={this.renderCustomActions}
+          renderCustomView={this.renderCustomView}
           messages={this.state.messages}
           isConnected={this.state.isConnected}
           onSend={(messages) => this.onSend(messages)}
